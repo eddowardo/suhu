@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Modern Elegan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* Reset */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Poppins', Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Animasi salju tipis */
+    .snowflake {
+      position: absolute;
+      top: -10px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: fall linear infinite;
+    }
+
+    @keyframes fall {
+      0% { transform: translateY(0) translateX(0); opacity: 1; }
+      100% { transform: translateY(110vh) translateX(20px); opacity: 0; }
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 22px;
+      box-shadow: 0 8px 32px rgba(31,38,135,0.18);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 40px 36px;
+      width: 380px;
+      animation: floatCard 1.2s cubic-bezier(.25,.8,.25,1);
+      position: relative;
+      z-index: 2;
+    }
+
+    @keyframes floatCard {
+      0% { opacity: 0; transform: translateY(40px) scale(0.95); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 24px;
+      color: #1e2a38;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    form { display: flex; flex-direction: column; gap: 20px; }
+
+    .form-group { position: relative; }
+
+    .input-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0.7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 44px 12px 40px;
+      border: 1.5px solid #cfd8dc;
+      border-radius: 10px;
+      font-size: 1rem;
+      background: rgba(255,255,255,0.6);
+      box-shadow: 0 2px 12px rgba(207,222,243,0.15);
+      transition: box-shadow 0.3s, border-color 0.3s;
+    }
+
+    .form-control:focus {
+      box-shadow: 0 4px 16px rgba(0,123,255,0.18);
+      border-color: #007bff;
+      outline: none;
+    }
+
+    /* Eye Icon Password */
+    .eye-icon {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s;
+    }
+
+    .eye-icon:hover { transform: translateY(-50%) scale(1.15); }
+
+    .eye {
+      width: 22px;
+      height: 14px;
+      background: #e0eafc;
+      border-radius: 50% / 60%;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 8px #cfd8dc;
+    }
+
+    .eye .pupil {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 7px;
+      height: 7px;
+      background: #fff;
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(1);
+      transition: transform 0.3s;
+    }
+
+    .eye-icon.show .eye .pupil {
+      transform: translate(-50%, -50%) scale(0.7);
+    }
+
+    .eye .blink {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: #e0eafc;
+      border-radius: 50%;
+      opacity: 0;
+      animation: blink 3s infinite;
+    }
+
+    @keyframes blink {
+      0%,97% { opacity: 0; }
+      98%,99% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .eye-icon.show .slash { opacity: 1; transform: rotate(-18deg) scale(1); }
+
+    .slash {
+      position: absolute;
+      left: 4px;
+      top: 2px;
+      width: 14px;
+      height: 2.5px;
+      background: #b0b8c1;
+      border-radius: 2px;
+      opacity: 0;
+      transform: rotate(-18deg) scale(0.7);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    button {
+      background: linear-gradient(90deg, #007bff 60%, #5ac8fa 100%);
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+
+    button:hover {
+      background: linear-gradient(90deg, #0056b3 60%, #007bff 100%);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+      transform: scale(1.05);
+    }
+
+    button::after {
+      content: '';
+      position: absolute;
+      left: -60px;
+      top: 0;
+      width: 60px;
+      height: 100%;
+      background: linear-gradient(120deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.02) 100%);
+      transform: skewX(-18deg);
+      transition: left 0.5s;
+    }
+
+    button:hover::after { left: 100%; }
+
+    .error { color: #e74c3c; font-size: 0.95rem; margin-top: 2px; }
+    p { text-align: center; margin-top: 18px; }
+    a { color: #007bff; text-decoration: none; font-weight: 500; }
+    a:hover { text-decoration: underline; }
+
+    @media (max-width: 500px) {
+      .glass-card { width: 95vw; padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Snowflakes -->
+  <script>
+    for(let i=0;i<30;i++){
+      const snow = document.createElement('div');
+      snow.classList.add('snowflake');
+      let size = Math.random()*6+2;
+      snow.style.width = size+'px';
+      snow.style.height = size+'px';
+      snow.style.left = Math.random()*100+'vw';
+      snow.style.animationDuration = (Math.random()*5+5)+'s';
+      snow.style.animationDelay = Math.random()*5+'s';
+      document.body.appendChild(snow);
+    }
+  </script>
+
+  <div class="glass-card">
+    <h2>Login</h2>
+    {% if messages %}
+      {% for message in messages %}
+        <p class="{{ message.tags }}">{{ message }}</p>
+      {% endfor %}
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-group">
+        <span class="input-icon">
+          <svg width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="8" r="4.5" stroke="#007bff" stroke-width="2"/><path d="M3.5 18c1.5-3 5-4 7.5-4s6 1 7.5 4" stroke="#007bff" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        {{ form.username }}
+        {% if form.username.errors %}
+          <p class="error">{{ form.username.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <span class="input-icon">
+          <svg width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="9" width="12" height="8" rx="3" stroke="#007bff" stroke-width="2"/><path d="M11 13v2" stroke="#007bff" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="2" stroke="#007bff" stroke-width="2"/></svg>
+        </span>
+        {{ form.password }}
+        <span class="eye-icon" onclick="togglePasswordVisibility()">
+          <span class="eye">
+            <span class="pupil"></span>
+            <span class="blink"></span>
+            <span class="slash"></span>
+          </span>
+        </span>
+        {% if form.password.errors %}
+          <p class="error">{{ form.password.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <button type="submit">Masuk</button>
+    </form>
+    <p>Belum punya akun? <a href="{% url 'register' %}">Daftar di sini</a></p>
+  </div>
+
+  <script>
+    function togglePasswordVisibility() {
+      const passwordInput = document.querySelector('input[name="password"]');
+      const eyeIcon = document.querySelector('.eye-icon');
+      if (!passwordInput || !eyeIcon) return;
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeIcon.classList.add('show');
+      } else {
+        passwordInput.type = 'password';
+        eyeIcon.classList.remove('show');
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      const passwordInput = document.querySelector('input[name="password"]');
+      if(passwordInput) {
+        passwordInput.classList.add('form-control');
+        passwordInput.type = 'password';
+      }
+    });
+  </script>
+</body>
+</html>

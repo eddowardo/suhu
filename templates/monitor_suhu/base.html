@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Monitoring Suhu{% endblock %}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 20px;
+        }
+        nav a {
+            color: white;
+            margin-right: 15px;
+            text-decoration: none;
+        }
+        .container {
+            padding: 20px;
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            background: #eee;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h2>Monitoring Suhu</h2>
+        <nav>
+            <a href="/">Home</a>
+            <a href="/users/login/">Login</a>
+            <a href="/users/register/">Register</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>
+        &copy; 2025 Sistem Monitoring Suhu
+    </footer>
+</body>
+</html>
