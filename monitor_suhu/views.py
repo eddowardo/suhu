@@ -44,7 +44,7 @@ def receive_sensor_data(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # ===== HTML View =====
-@login_required
+# @login_required  # Disabled temporarily
 def index(request):
     rooms = Room.objects.all().prefetch_related('readings')
     # Ambil data terbaru dari database untuk sensor aktif
