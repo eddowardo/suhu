@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # === SECURITY ===
 SECRET_KEY = 'django-insecure-ymb_(s0fh-n%f&!i*340w3$c7+**j@x5%c@%qi^opuht3ip4)l'
 DEBUG = True
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.146.1.170']
 
 # === APPLICATIONS ===
 INSTALLED_APPS = [
@@ -24,6 +24,8 @@ INSTALLED_APPS = [
     # Aplikasi kamu
     'monitor_suhu',
     'users',
+    'sensor',
+
 ]
 
 # === MIDDLEWARE ===

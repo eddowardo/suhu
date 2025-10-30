@@ -3,11 +3,11 @@
 #include <DHT.h>
 
 // Konfigurasi WiFi
-const char* ssid = "YOUR_WIFI_SSID";        // Ganti dengan SSID WiFi kamu
-const char* password = "YOUR_WIFI_PASSWORD"; // Ganti dengan password WiFi
+const char* ssid = "ESPTEST";        // Ganti dengan SSID WiFi kamu
+const char* password = "12345678"; // Ganti dengan password WiFi
 
 // Konfigurasi server Django
-const char* serverUrl = "http://192.168.1.100:8000/api/sensor-data/"; // Ganti dengan IP komputer Django server
+const char* serverUrl = "http://10.146.1.170:8000/api/sensor-data/"; // IP server Django dengan endpoint benar (dash)
 
 // Konfigurasi DHT22
 #define DHTPIN D4     // Pin data DHT22 (GPIO 2)
@@ -15,7 +15,7 @@ const char* serverUrl = "http://192.168.1.100:8000/api/sensor-data/"; // Ganti d
 DHT dht(DHTPIN, DHTTYPE);
 
 // ID ruangan (sesuaikan dengan database Django)
-int roomId = 1; // Ganti dengan ID room yang sesuai
+int roomId = 1; // ID room, default 1
 
 void setup() {
   Serial.begin(115200);
@@ -59,7 +59,7 @@ void loop() {
     http.begin(serverUrl);
     http.addHeader("Content-Type", "application/json");
 
-    // Buat payload JSON
+    // Buat payload JSON dengan room_id
     String jsonPayload = "{";
     jsonPayload += "\"room_id\":" + String(roomId) + ",";
     jsonPayload += "\"temperature\":" + String(temperature, 2) + ",";

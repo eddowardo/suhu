@@ -1,3 +1,9 @@
-- [ ] Perbaiki error NoReverseMatch untuk 'logout' di template index.html
-- [ ] Pastikan dashboard langsung muncul tanpa login saat membuka http://127.0.0.1:8000/
-- [ ] Test aplikasi untuk memastikan berjalan dengan baik
+- [x] Add get_comfort_status API view in monitor_suhu/views.py
+- [x] Add URL pattern for comfort status endpoint in monitor_suhu/urls.py
+- [x] Test the API endpoint to ensure it returns one of the three comfort levels
+- [x] Add humidity chart to dashboard template
+- [x] Update dashboard to display only one sensor instead of multiple sensors
+- [x] Simplify dashboard to focus on temperature and humidity from single sensor
+- [x] Update nodemcu_sensor.ino to send data to correct Django endpoint with JSON format and room_id
+- [x] Test sensor data connection to web dashboard
+- [x] Verify data appears in Django admin and web interface

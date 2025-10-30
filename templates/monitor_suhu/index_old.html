@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Monitoring Suhu</title>
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Montserrat', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e2a38 60%, #2d3e50 100%);
+            color: #fff;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0; top: 0; bottom: 0;
+            width: 220px;
+            background: #202c3b;
+            padding: 30px 0;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar h2 {
+            color: #fff;
+            text-align: center;
+            font-size: 1.3em;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+        }
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+        .sidebar ul li {
+            margin: 20px 0;
+        }
+        .sidebar ul li a {
+            color: #b0c4d6;
+            text-decoration: none;
+            font-size: 1em;
+            padding: 10px 30px;
+            display: block;
+            border-left: 4px solid transparent;
+            transition: 0.2s;
+        }
+        .sidebar ul li a.active, .sidebar ul li a:hover {
+            color: #fff;
+            background: #25344a;
+            border-left: 4px solid #00e6e6;
+        }
+        .main {
+            margin-left: 240px;
+            padding: 30px 40px;
+        }
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .dashboard-header h1 {
+            font-size: 2em;
+            font-weight: 700;
+        }
+        .dashboard-header .date {
+            font-size: 1em;
+            color: #b0c4d6;
+        }
+        .dashboard-menu {
+            margin-bottom: 30px;
+        }
+        .dashboard-menu button {
+            background: #25344a;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            margin-right: 10px;
+            border-radius: 20px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .dashboard-menu button.active, .dashboard-menu button:hover {
+            background: #00e6e6;
+            color: #202c3b;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-gap: 30px;
+        }
+        .card {
+            background: #25344a;
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            min-height: 220px;
+        }
+        .card-title {
+            font-size: 1.1em;
+            color: #b0c4d6;
+            margin-bottom: 10px;
+        }
+        .card-value {
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .card-chart {
+            width: 100%;
+            height: 120px;
+        }
+        .appliance-list {
+            margin-top: 10px;
+        }
+        .appliance-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+        .appliance-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #00e6e6;
+            margin-left: 10px;
+            flex: 1;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #b0c4d6;
+            font-size: 0.9em;
+        }
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .main {
+                margin-left: 0;
+                padding: 20px 10px;
+            }
+            .sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+                box-shadow: none;
+                padding: 10px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>SUHU SMART</h2>
+        <ul>
+            <li><a href="#" class="active">Dashboard</a></li>
+            <li><a href="#">Sensor Aktif</a></li>
+            <li><a href="#" id="btn-dataset">Dataset</a></li>
+            <li><a href="#" style="color:#ff5e5e;">Logout</a></li>
+        </ul>
+    </div>
+    <div class="main">
+        <div class="dashboard-header">
+            <h1>Dashboard Monitoring Suhu</h1>
+            <div class="date">{{ today_date }}</div>
+        </div>
+        <div class="dashboard-menu">
+            <button class="active" id="btn-hari">Hari Ini</button>
+            <button id="btn-prediksi">Prediksi Suhu & Kelembapan 2 Jam Kedepan</button>
+            <button id="btn-notifikasi">Notifikasi</button>
+        </div>
+        <div id="dashboard-content">
+            <div id="dashboard-main">
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-title">Status Comfort</div>
+                        <div class="card-value">{{ comfort_status }}</div>
+                        <canvas id="pieChart" class="card-chart"></canvas>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Suhu Prediksi</div>
+                        <div class="card-value">{{ suhu_prediksi }}°C</div>
+                        <canvas id="barChart" class="card-chart"></canvas>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Kelembapan Saat Ini</div>
+                        <div class="card-value">{{ kelembapan_saat_ini }}%</div>
+                        <canvas id="humidityChart" class="card-chart"></canvas>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Perubahan Suhu</div>
+                        <div class="card-value">{{ perubahan_suhu }}°C</div>
+                        <div style="color:#ff5e5e; font-size:1em;">{{ perubahan_persen }}% perubahan</div>
+                        <canvas id="barChart" class="card-chart"></canvas>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Estimasi Penggunaan Sensor</div>
+                        <div class="card-value">{{ estimasi_penggunaan }} Sensor</div>
+                        <canvas id="lineChart" class="card-chart"></canvas>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Sensor Aktif</div>
+                        <div class="appliance-list">
+                            {% for sensor in sensor_aktif %}
+                            {% if sensor.nama == 'Sensor Ruangan' %}
+                            <div class="appliance-item">
+                                <span>{{ sensor.nama }}</span>
+                                <span>{{ sensor.value }}°C</span>
+                                <div class="appliance-bar" style="width:{{ sensor.value|floatformat:0 }}%"></div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Intensitas Suhu</div>
+                        <div class="card-value">{{ intensitas_suhu }}°C/m2</div>
+                        <canvas id="intensityChart" class="card-chart"></canvas>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Jejak Lingkungan</div>
+                        <div>Emisi: {{ emisi }} kg CO2</div>
+                        <div>Energi Hijau: {{ energi_hijau }} kWh</div>
+                        <canvas id="carbonChart" class="card-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div id="dashboard-prediksi" style="display:none;">
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-title">Prediksi Suhu 2 Jam Kedepan</div>
+                        <div class="card-value" id="prediksi-suhu">{{ suhu_prediksi_2jam }}°C</div>
+                        <canvas id="prediksiSuhuChart" class="card-chart"></canvas>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Prediksi Kelembapan 2 Jam Kedepan</div>
+                        <div class="card-value" id="prediksi-kelembapan">{{ kelembapan_prediksi_2jam }}%</div>
+                        <canvas id="prediksiKelembapanChart" class="card-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div id="dashboard-notifikasi" style="display:none;">
+                <div class="card">
+                    <div class="card-title">Notifikasi</div>
+                    <ul id="notifikasi-list">
+                        {% for notification in notifications %}
+                        <li>{{ notification }}</li>
+                        {% empty %}
+                        <li>[{{ today_date }}] Tidak ada notifikasi baru</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <div id="dashboard-dataset" style="display:none;">
+                <div class="card">
+                    <div class="card-title">Dataset Suhu & Kelembapan (10 Menit)</div>
+                    <table style="width:100%;color:#fff;background:#25344a;border-radius:8px;">
+                        <thead>
+                            <tr style="background:#202c3b;">
+                                <th>Waktu</th>
+                                <th>Suhu (°C)</th>
+                                <th>Kelembapan (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataset-table"></tbody>
+                    </table>
+                </div>
+                <div class="card">
+                    <div class="card-title">Grafik Dataset Suhu & Kelembapan</div>
+                    <canvas id="datasetChart" class="card-chart"></canvas>
+                </div>
+                <div class="card">
+                    <div class="card-title">Prediksi Rata-rata 2 Jam Kedepan</div>
+                    <div id="prediksi-2jam">Suhu: - °C, Kelembapan: - %</div>
+                </div>
+            </div>
+        </div>
+        <div class="footer">
+            &copy; 2025 SUHU SMART - Dashboard Monitoring Suhu
+        </div>
+    </div>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let pieChart, barChart, humidityChart, lineChart, intensityChart, carbonChart;
+        function initCharts(data) {
+            if (pieChart) pieChart.destroy();
+            if (barChart) barChart.destroy();
+            if (humidityChart) humidityChart.destroy();
+            if (lineChart) lineChart.destroy();
+            if (intensityChart) intensityChart.destroy();
+            if (carbonChart) carbonChart.destroy();
+            pieChart = new Chart(document.getElementById('pieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Sensor Aktif', 'Tidak Aktif'],
+                    datasets: [{
+                        data: [data.sensor_aktif[0].value, 100-data.sensor_aktif[0].value],
+                        backgroundColor: ['#00e6e6', '#25344a'],
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+            barChart = new Chart(document.getElementById('barChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Kemarin', 'Hari Ini'],
+                    datasets: [{
+                        data: [data.suhu_kemarin, data.suhu_prediksi],
+                        backgroundColor: ['#00e6e6', '#ff5e5e'],
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+            lineChart = new Chart(document.getElementById('lineChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
+                    datasets: [{
+                        data: data.estimasi_penggunaan_chart,
+                        borderColor: '#00e6e6',
+                        backgroundColor: 'rgba(0,230,230,0.1)',
+                        fill: true,
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+            intensityChart = new Chart(document.getElementById('intensityChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Intensitas'],
+                    datasets: [{
+                        data: [data.intensitas_suhu, 100-data.intensitas_suhu],
+                        backgroundColor: ['#00e6e6', '#25344a'],
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+            humidityChart = new Chart(document.getElementById('humidityChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Kelembapan'],
+                    datasets: [{
+                        data: [data.kelembapan_saat_ini, 100-data.kelembapan_saat_ini],
+                        backgroundColor: ['#ffce56', '#25344a'],
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+            carbonChart = new Chart(document.getElementById('carbonChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Emisi', 'Energi Hijau'],
+                    datasets: [{
+                        data: [data.emisi, data.energi_hijau],
+                        backgroundColor: ['#ff5e5e', '#00e6e6'],
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+        }
+        function updateDummyData() {
+            // Data dummy berubah setiap 5 detik
+            let suhu_prediksi = 22 + Math.floor(Math.random()*5);
+            let perubahan_suhu = (Math.random()*2).toFixed(1);
+            let perubahan_persen = (Math.random()*10).toFixed(2);
+            let estimasi_penggunaan = 5 + Math.floor(Math.random()*5);
+            let sensor_aktif = [
+                {nama:'Sensor Ruangan', value: 22+Math.floor(Math.random()*5)},
+            ];
+            let intensitas_suhu = 40 + Math.floor(Math.random()*20);
+            let emisi = (30 + Math.random()*10).toFixed(1);
+            let energi_hijau = 80 + Math.floor(Math.random()*40);
+            let suhu_kemarin = suhu_prediksi - Math.floor(Math.random()*2);
+            let estimasi_penggunaan_chart = [10, 12, 15, 18, 20, 22, 25].map(x=>x+Math.floor(Math.random()*5));
+            // Update value di dashboard
+            document.querySelectorAll('.card-value')[0].innerText = suhu_prediksi + '°C';
+            document.querySelectorAll('.card-value')[1].innerText = perubahan_suhu + '°C';
+            document.querySelectorAll('.card-value')[2].innerText = estimasi_penggunaan + ' Sensor';
+            document.querySelectorAll('.card-value')[3].innerText = intensitas_suhu + '°C/m2';
+            document.querySelectorAll('.card-title')[1].nextElementSibling.nextElementSibling.innerText = perubahan_persen + '% perubahan';
+            document.querySelectorAll('.card-title')[5].nextElementSibling.innerHTML = 'Emisi: ' + emisi + ' kg CO2<br>Energi Hijau: ' + energi_hijau + ' kWh';
+            // Sensor aktif
+            let sensorList = document.querySelector('.appliance-list');
+            sensorList.innerHTML = '';
+            sensor_aktif.forEach(sensor => {
+                sensorList.innerHTML += `<div class="appliance-item"><span>${sensor.nama}</span><span>${sensor.value}°C</span><div class="appliance-bar" style="width:${sensor.value}%"></div></div>`;
+            });
+            // Update chart
+            initCharts({
+                suhu_prediksi,
+                perubahan_suhu,
+                perubahan_persen,
+                estimasi_penggunaan,
+                sensor_aktif,
+                intensitas_suhu,
+                emisi,
+                energi_hijau,
+                suhu_kemarin,
+                estimasi_penggunaan_chart,
+                kelembapan_saat_ini: 60 + Math.floor(Math.random()*20)  // dummy kelembapan
+            });
+        }
+        // Jalankan pertama kali
+        updateDummyData();
+        // Jalankan setiap 5 detik
+        setInterval(updateDummyData, 5000);
+    });
+    // Script untuk tombol menu
+    document.addEventListener("DOMContentLoaded", function() {
+        const btnHari = document.getElementById('btn-hari');
+        const btnPrediksi = document.getElementById('btn-prediksi');
+        const btnNotifikasi = document.getElementById('btn-notifikasi');
+        const btnDataset = document.getElementById('btn-dataset');
+        const main = document.getElementById('dashboard-main');
+        const prediksi = document.getElementById('dashboard-prediksi');
+        const notifikasi = document.getElementById('dashboard-notifikasi');
+        const dataset = document.getElementById('dashboard-dataset');
+        btnHari.onclick = function() {
+            btnHari.classList.add('active');
+            btnPrediksi.classList.remove('active');
+            btnNotifikasi.classList.remove('active');
+            btnDataset.classList.remove('active');
+            main.style.display = '';
+            prediksi.style.display = 'none';
+            notifikasi.style.display = 'none';
+            dataset.style.display = 'none';
+        };
+        btnPrediksi.onclick = function() {
+            btnHari.classList.remove('active');
+            btnPrediksi.classList.add('active');
+            btnNotifikasi.classList.remove('active');
+            btnDataset.classList.remove('active');
+            main.style.display = 'none';
+            prediksi.style.display = '';
+            notifikasi.style.display = 'none';
+            dataset.style.display = 'none';
+            // Ambil data sensor ruangan dari dashboard utama
+            let sensorValue = 25; // default
+            let kelembapanValue = 60; // default
+            let sensorList = document.querySelectorAll('.appliance-item');
+            if(sensorList.length > 0) {
+                let valText = sensorList[0].querySelector('span:nth-child(2)').innerText;
+                sensorValue = parseInt(valText);
+            }
+            // Prediksi suhu: mulai dari sensorValue, naik/turun acak
+            let prediksiSuhu = [sensorValue];
+            for(let i=1; i<5; i++) {
+                prediksiSuhu.push(prediksiSuhu[i-1] + Math.floor(Math.random()*3-1));
+            }
+            // Prediksi kelembapan: mulai dari kelembapanValue, naik/turun acak
+            let prediksiKelembapan = [kelembapanValue];
+            for(let i=1; i<5; i++) {
+                prediksiKelembapan.push(prediksiKelembapan[i-1] + Math.floor(Math.random()*3-1));
+            }
+            document.getElementById('prediksi-suhu').innerText = prediksiSuhu[4] + '°C';
+            document.getElementById('prediksi-kelembapan').innerText = prediksiKelembapan[4] + '%';
+            if(window.prediksiSuhuChartObj) window.prediksiSuhuChartObj.destroy();
+            window.prediksiSuhuChartObj = new Chart(document.getElementById('prediksiSuhuChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Sekarang', '+30m', '+60m', '+90m', '+120m'],
+                    datasets: [{
+                        label: 'Suhu',
+                        data: prediksiSuhu,
+                        borderColor: '#00e6e6',
+                        backgroundColor: 'rgba(0,230,230,0.1)',
+                        fill: true,
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+            if(window.prediksiKelembapanChartObj) window.prediksiKelembapanChartObj.destroy();
+            window.prediksiKelembapanChartObj = new Chart(document.getElementById('prediksiKelembapanChart'), {
+                type: 'line',
+                data: {
+                    labels: ['Sekarang', '+30m', '+60m', '+90m', '+120m'],
+                    datasets: [{
+                        label: 'Kelembapan',
+                        data: prediksiKelembapan,
+                        borderColor: '#ffce56',
+                        backgroundColor: 'rgba(255,206,86,0.1)',
+                        fill: true,
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+        };
+        btnNotifikasi.onclick = function() {
+            btnHari.classList.remove('active');
+            btnPrediksi.classList.remove('active');
+            btnNotifikasi.classList.add('active');
+            btnDataset.classList.remove('active');
+            main.style.display = 'none';
+            prediksi.style.display = 'none';
+            notifikasi.style.display = '';
+            dataset.style.display = 'none';
+        };
+        btnDataset.onclick = function() {
+            btnHari.classList.remove('active');
+            btnPrediksi.classList.remove('active');
+            btnNotifikasi.classList.remove('active');
+            btnDataset.classList.add('active');
+            main.style.display = 'none';
+            prediksi.style.display = 'none';
+            notifikasi.style.display = 'none';
+            dataset.style.display = '';
+            // Generate dummy dataset
+            let now = new Date();
+            let datasetArr = [];
+            for(let i=11;i>=0;i--) {
+                let waktu = new Date(now.getTime()-i*10*60000);
+                let jam = waktu.getHours().toString().padStart(2,'0');
+                let menit = waktu.getMinutes().toString().padStart(2,'0');
+                let suhu = 22 + Math.floor(Math.random()*5);
+                let kelembapan = 55 + Math.floor(Math.random()*10);
+                datasetArr.push({waktu: jam+':'+menit, suhu, kelembapan});
+            }
+            // Tabel
+            let table = document.getElementById('dataset-table');
+            table.innerHTML = '';
+            datasetArr.forEach(row => {
+                table.innerHTML += `<tr><td>${row.waktu}</td><td>${row.suhu}</td><td>${row.kelembapan}</td></tr>`;
+            });
+            // Grafik
+            if(window.datasetChartObj) window.datasetChartObj.destroy();
+            window.datasetChartObj = new Chart(document.getElementById('datasetChart'), {
+                type: 'line',
+                data: {
+                    labels: datasetArr.map(x=>x.waktu),
+                    datasets: [
+                        {label:'Suhu',data:datasetArr.map(x=>x.suhu),borderColor:'#00e6e6',fill:false},
+                        {label:'Kelembapan',data:datasetArr.map(x=>x.kelembapan),borderColor:'#ffce56',fill:false}
+                    ]
+                },
+                options: {responsive:true}
+            });
+            // Prediksi rata-rata 2 jam
+            let avgSuhu = (datasetArr.reduce((a,b)=>a+b.suhu,0)/datasetArr.length).toFixed(1);
+            let avgKelembapan = (datasetArr.reduce((a,b)=>a+b.kelembapan,0)/datasetArr.length).toFixed(1);
+            document.getElementById('prediksi-2jam').innerText = `Suhu: ${avgSuhu} °C, Kelembapan: ${avgKelembapan} %`;
+        };
+    });
+    </script>
+</body>
+</html>

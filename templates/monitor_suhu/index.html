@@ -111,22 +111,6 @@
             width: 100%;
             height: 120px;
         }
-        .appliance-list {
-            margin-top: 10px;
-        }
-        .appliance-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 1em;
-        }
-        .appliance-bar {
-            height: 8px;
-            border-radius: 4px;
-            background: #00e6e6;
-            margin-left: 10px;
-            flex: 1;
-        }
         .footer {
             margin-top: 40px;
             text-align: center;
@@ -156,7 +140,6 @@
         <h2>SUHU SMART</h2>
         <ul>
             <li><a href="#" class="active">Dashboard</a></li>
-            <li><a href="#">Sensor Aktif</a></li>
             <li><a href="#" id="btn-dataset">Dataset</a></li>
             <li><a href="#" style="color:#ff5e5e;">Logout</a></li>
         </ul>
@@ -175,45 +158,38 @@
             <div id="dashboard-main">
                 <div class="grid">
                     <div class="card">
-                        <div class="card-title">Suhu Prediksi</div>
-                        <div class="card-value">{{ suhu_prediksi }}°C</div>
+                        <div class="card-title">Status Comfort</div>
+                        <div class="card-value">{{ comfort_status }}</div>
                         <canvas id="pieChart" class="card-chart"></canvas>
                     </div>
                     <div class="card">
-                        <div class="card-title">Perubahan Suhu</div>
-                        <div class="card-value">{{ perubahan_suhu }}°C</div>
-                        <div style="color:#ff5e5e; font-size:1em;">{{ perubahan_persen }}% perubahan</div>
+                        <div class="card-title">Suhu Saat Ini</div>
+                        <div class="card-value">{{ latest_temperature|default:"--" }}°C</div>
                         <canvas id="barChart" class="card-chart"></canvas>
                     </div>
                     <div class="card">
-                        <div class="card-title">Estimasi Penggunaan Sensor</div>
-                        <div class="card-value">{{ estimasi_penggunaan }} Sensor</div>
-                        <canvas id="lineChart" class="card-chart"></canvas>
+                        <div class="card-title">Kelembapan Saat Ini</div>
+                        <div class="card-value">{{ latest_humidity|default:"--" }}%</div>
+                        <canvas id="humidityChart" class="card-chart"></canvas>
                     </div>
                     <div class="card">
-                        <div class="card-title">Sensor Aktif</div>
-                        <div class="appliance-list">
-                            {% for sensor in sensor_aktif %}
-                            {% if sensor.nama == 'Sensor Ruangan' %}
-                            <div class="appliance-item">
-                                <span>{{ sensor.nama }}</span>
-                                <span>{{ sensor.value }}°C</span>
-                                <div class="appliance-bar" style="width:{{ sensor.value|floatformat:0 }}%"></div>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
+                        <div class="card-title">Suhu vs Kelembapan</div>
+                        <div class="card-value">{{ latest_temperature|default:"--" }}°C / {{ latest_humidity|default:"--" }}%</div>
+                        <canvas id="tempHumidityChart" class="card-chart"></canvas>
                     </div>
-                    <div class="card">
-                        <div class="card-title">Intensitas Suhu</div>
-                        <div class="card-value">{{ intensitas_suhu }}°C/m2</div>
-                        <canvas id="intensityChart" class="card-chart"></canvas>
-                    </div>
-                    <div class="card">
-                        <div class="card-title">Jejak Lingkungan</div>
-                        <div>Emisi: {{ emisi }} kg CO2</div>
-                        <div>Energi Hijau: {{ energi_hijau }} kWh</div>
-                        <canvas id="carbonChart" class="card-chart"></canvas>
+                </div>
+
+                <!-- Terminal-like display for sensor data -->
+                <div class="card" style="margin-top: 30px;">
+                    <div class="card-title">Monitoring Real-Time Sensor</div>
+                    <div id="sensor-terminal" style="background: #1a1a1a; color: #00ff00; font-family: 'Courier New', monospace; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; font-size: 14px;">
+                        <div style="color: #ffff00;">=== MONITORING SUHU & KELEMBAPAN REAL-TIME ===</div>
+                        <div style="color: #b0c4d6; margin-bottom: 10px;">Tekan Ctrl+C untuk berhenti monitoring</div>
+                        {% for data in sensor_data %}
+                        <div>{{ data.timestamp }}: Suhu {{ data.temperature }}°C, Kelembapan {{ data.humidity }}%</div>
+                        {% empty %}
+                        <div style="color: #ff6b6b;">Menunggu data sensor pertama...</div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -221,12 +197,12 @@
                 <div class="grid">
                     <div class="card">
                         <div class="card-title">Prediksi Suhu 2 Jam Kedepan</div>
-                        <div class="card-value" id="prediksi-suhu">25°C</div>
+                        <div class="card-value" id="prediksi-suhu">{{ suhu_prediksi_2jam }}°C</div>
                         <canvas id="prediksiSuhuChart" class="card-chart"></canvas>
                     </div>
                     <div class="card">
                         <div class="card-title">Prediksi Kelembapan 2 Jam Kedepan</div>
-                        <div class="card-value" id="prediksi-kelembapan">60%</div>
+                        <div class="card-value" id="prediksi-kelembapan">{{ kelembapan_prediksi_2jam }}%</div>
                         <canvas id="prediksiKelembapanChart" class="card-chart"></canvas>
                     </div>
                 </div>
@@ -235,7 +211,11 @@
                 <div class="card">
                     <div class="card-title">Notifikasi</div>
                     <ul id="notifikasi-list">
-                        <li>[12:01] Suhu ruangan melebihi 28°C</li>
+                        {% for notification in notifications %}
+                        <li>{{ notification }}</li>
+                        {% empty %}
+                        <li>[{{ today_date }}] Tidak ada notifikasi baru</li>
+                        {% endfor %}
                     </ul>
                 </div>
             </div>
@@ -269,120 +249,117 @@
     </div>
     <script>
     document.addEventListener("DOMContentLoaded", function() {
-        let pieChart, barChart, lineChart, intensityChart, carbonChart;
+        let pieChart, barChart, humidityChart, tempHumidityChart;
+
         function initCharts(data) {
             if (pieChart) pieChart.destroy();
             if (barChart) barChart.destroy();
-            if (lineChart) lineChart.destroy();
-            if (intensityChart) intensityChart.destroy();
-            if (carbonChart) carbonChart.destroy();
+            if (humidityChart) humidityChart.destroy();
+            if (tempHumidityChart) tempHumidityChart.destroy();
+
             pieChart = new Chart(document.getElementById('pieChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['Sensor 1', 'Sensor 2'],
+                    labels: ['Comfort', 'Tidak Comfort'],
                     datasets: [{
-                        data: [data.sensor_aktif[0].value, data.sensor_aktif[1].value],
-                        backgroundColor: ['#00e6e6', '#ffce56'],
-                    }]
-                },
-                options: {responsive:true, plugins:{legend:{display:false}}}
-            });
-            barChart = new Chart(document.getElementById('barChart'), {
-                type: 'bar',
-                data: {
-                    labels: ['Kemarin', 'Hari Ini'],
-                    datasets: [{
-                        data: [data.suhu_kemarin, data.suhu_prediksi],
-                        backgroundColor: ['#00e6e6', '#ff5e5e'],
-                    }]
-                },
-                options: {responsive:true, plugins:{legend:{display:false}}}
-            });
-            lineChart = new Chart(document.getElementById('lineChart'), {
-                type: 'line',
-                data: {
-                    labels: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
-                    datasets: [{
-                        data: data.estimasi_penggunaan_chart,
-                        borderColor: '#00e6e6',
-                        backgroundColor: 'rgba(0,230,230,0.1)',
-                        fill: true,
-                    }]
-                },
-                options: {responsive:true, plugins:{legend:{display:false}}}
-            });
-            intensityChart = new Chart(document.getElementById('intensityChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Intensitas'],
-                    datasets: [{
-                        data: [data.intensitas_suhu, 100-data.intensitas_suhu],
+                        data: [70, 30], // dummy comfort level
                         backgroundColor: ['#00e6e6', '#25344a'],
                     }]
                 },
                 options: {responsive:true, plugins:{legend:{display:false}}}
             });
-            carbonChart = new Chart(document.getElementById('carbonChart'), {
+
+            barChart = new Chart(document.getElementById('barChart'), {
                 type: 'bar',
                 data: {
-                    labels: ['Emisi', 'Energi Hijau'],
+                    labels: ['Suhu'],
                     datasets: [{
-                        data: [data.emisi, data.energi_hijau],
-                        backgroundColor: ['#ff5e5e', '#00e6e6'],
+                        data: [data.suhu_saat_ini],
+                        backgroundColor: ['#00e6e6'],
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+
+            humidityChart = new Chart(document.getElementById('humidityChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Kelembapan'],
+                    datasets: [{
+                        data: [data.kelembapan_saat_ini, 100-data.kelembapan_saat_ini],
+                        backgroundColor: ['#ffce56', '#25344a'],
+                    }]
+                },
+                options: {responsive:true, plugins:{legend:{display:false}}}
+            });
+
+            tempHumidityChart = new Chart(document.getElementById('tempHumidityChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Suhu', 'Kelembapan'],
+                    datasets: [{
+                        data: [data.suhu_saat_ini, data.kelembapan_saat_ini],
+                        backgroundColor: ['#00e6e6', '#ffce56'],
                     }]
                 },
                 options: {responsive:true, plugins:{legend:{display:false}}}
             });
         }
-        function updateDummyData() {
-            // Data dummy berubah setiap 5 detik
-            let suhu_prediksi = 22 + Math.floor(Math.random()*5);
-            let perubahan_suhu = (Math.random()*2).toFixed(1);
-            let perubahan_persen = (Math.random()*10).toFixed(2);
-            let estimasi_penggunaan = 5 + Math.floor(Math.random()*5);
-            let sensor_aktif = [
-                {nama:'Sensor Ruangan', value: 22+Math.floor(Math.random()*5)},
-                {nama:'Sensor Ruangan', value: 22+Math.floor(Math.random()*5)},
-                {nama:'Sensor Ruangan', value: 22+Math.floor(Math.random()*5)},
-                {nama:'Sensor Ruangan', value: 22+Math.floor(Math.random()*5)},
-            ];
-            let intensitas_suhu = 40 + Math.floor(Math.random()*20);
-            let emisi = (30 + Math.random()*10).toFixed(1);
-            let energi_hijau = 80 + Math.floor(Math.random()*40);
-            let suhu_kemarin = suhu_prediksi - Math.floor(Math.random()*2);
-            let estimasi_penggunaan_chart = [10, 12, 15, 18, 20, 22, 25].map(x=>x+Math.floor(Math.random()*5));
-            // Update value di dashboard
-            document.querySelectorAll('.card-value')[0].innerText = suhu_prediksi + '°C';
-            document.querySelectorAll('.card-value')[1].innerText = perubahan_suhu + '°C';
-            document.querySelectorAll('.card-value')[2].innerText = estimasi_penggunaan + ' Sensor';
-            document.querySelectorAll('.card-value')[3].innerText = intensitas_suhu + '°C/m2';
-            document.querySelectorAll('.card-title')[1].nextElementSibling.nextElementSibling.innerText = perubahan_persen + '% perubahan';
-            document.querySelectorAll('.card-title')[5].nextElementSibling.innerHTML = 'Emisi: ' + emisi + ' kg CO2<br>Energi Hijau: ' + energi_hijau + ' kWh';
-            // Sensor aktif
-            let sensorList = document.querySelector('.appliance-list');
-            sensorList.innerHTML = '';
-            sensor_aktif.forEach(sensor => {
-                sensorList.innerHTML += `<div class="appliance-item"><span>${sensor.nama}</span><span>${sensor.value}°C</span><div class="appliance-bar" style="width:${sensor.value}%"></div></div>`;
-            });
-            // Update chart
-            initCharts({
-                suhu_prediksi,
-                perubahan_suhu,
-                perubahan_persen,
-                estimasi_penggunaan,
-                sensor_aktif,
-                intensitas_suhu,
-                emisi,
-                energi_hijau,
-                suhu_kemarin,
-                estimasi_penggunaan_chart
-            });
+
+        async function updateSensorData() {
+            try {
+                const response = await fetch('/api/latest-sensor-data/');
+                const data = await response.json();
+
+                // Update nilai di card
+                document.querySelector('.card:nth-child(2) .card-value').innerText = data.temperature + '°C';
+                document.querySelector('.card:nth-child(3) .card-value').innerText = data.humidity + '%';
+                document.querySelector('.card:nth-child(4) .card-value').innerText = data.temperature + '°C / ' + data.humidity + '%';
+
+                // Update status kenyamanan
+                const comfortResponse = await fetch('/api/comfort-status/');
+                const comfortData = await comfortResponse.json();
+                document.querySelector('.card:nth-child(1) .card-value').innerText = comfortData.comfort_status;
+
+                // Update terminal display
+                const terminal = document.getElementById('sensor-terminal');
+                const newEntry = document.createElement('div');
+                const now = new Date();
+                const timestamp = now.toISOString().slice(0, 19).replace('T', ' ');
+                newEntry.innerHTML = `${timestamp}: Suhu ${data.temperature}°C, Kelembapan ${data.humidity}%, Status: ${comfortData.comfort_status}`;
+                terminal.appendChild(newEntry);
+
+                // Keep only last 10 entries
+                while (terminal.children.length > 12) { // 2 header + 10 data
+                    if (terminal.children[2]) terminal.removeChild(terminal.children[2]);
+                }
+
+                // Scroll to bottom
+                terminal.scrollTop = terminal.scrollHeight;
+
+                // Update chart
+                initCharts({
+                    suhu_saat_ini: data.temperature,
+                    kelembapan_saat_ini: data.humidity
+                });
+            } catch (error) {
+                console.error('Error fetching sensor data:', error);
+                // Fallback to dummy data if API fails
+                let suhu_saat_ini = 22 + Math.floor(Math.random()*5);
+                let kelembapan_saat_ini = 60 + Math.floor(Math.random()*20);
+                initCharts({
+                    suhu_saat_ini,
+                    kelembapan_saat_ini
+                });
+            }
         }
+
         // Jalankan pertama kali
-        updateDummyData();
-        // Jalankan setiap 5 detik
-        setInterval(updateDummyData, 5000);
+        updateSensorData();
+        // Jalankan setiap 10 detik (sesuai interval sensor)
+        setInterval(updateSensorData, 10000);
     });
+
     // Script untuk tombol menu
     document.addEventListener("DOMContentLoaded", function() {
         const btnHari = document.getElementById('btn-hari');
@@ -393,6 +370,7 @@
         const prediksi = document.getElementById('dashboard-prediksi');
         const notifikasi = document.getElementById('dashboard-notifikasi');
         const dataset = document.getElementById('dashboard-dataset');
+
         btnHari.onclick = function() {
             btnHari.classList.add('active');
             btnPrediksi.classList.remove('active');
@@ -403,6 +381,7 @@
             notifikasi.style.display = 'none';
             dataset.style.display = 'none';
         };
+
         btnPrediksi.onclick = function() {
             btnHari.classList.remove('active');
             btnPrediksi.classList.add('active');
@@ -412,26 +391,23 @@
             prediksi.style.display = '';
             notifikasi.style.display = 'none';
             dataset.style.display = 'none';
-            // Ambil data sensor ruangan dari dashboard utama
-            let sensorValue = 25; // default
-            let kelembapanValue = 60; // default
-            let sensorList = document.querySelectorAll('.appliance-item');
-            if(sensorList.length > 0) {
-                let valText = sensorList[0].querySelector('span:nth-child(2)').innerText;
-                sensorValue = parseInt(valText);
-            }
-            // Prediksi suhu: mulai dari sensorValue, naik/turun acak
+
+            let sensorValue = 25;
+            let kelembapanValue = 60;
+
             let prediksiSuhu = [sensorValue];
             for(let i=1; i<5; i++) {
                 prediksiSuhu.push(prediksiSuhu[i-1] + Math.floor(Math.random()*3-1));
             }
-            // Prediksi kelembapan: mulai dari kelembapanValue, naik/turun acak
+
             let prediksiKelembapan = [kelembapanValue];
             for(let i=1; i<5; i++) {
                 prediksiKelembapan.push(prediksiKelembapan[i-1] + Math.floor(Math.random()*3-1));
             }
+
             document.getElementById('prediksi-suhu').innerText = prediksiSuhu[4] + '°C';
             document.getElementById('prediksi-kelembapan').innerText = prediksiKelembapan[4] + '%';
+
             if(window.prediksiSuhuChartObj) window.prediksiSuhuChartObj.destroy();
             window.prediksiSuhuChartObj = new Chart(document.getElementById('prediksiSuhuChart'), {
                 type: 'line',
@@ -447,6 +423,7 @@
                 },
                 options: {responsive:true, plugins:{legend:{display:false}}}
             });
+
             if(window.prediksiKelembapanChartObj) window.prediksiKelembapanChartObj.destroy();
             window.prediksiKelembapanChartObj = new Chart(document.getElementById('prediksiKelembapanChart'), {
                 type: 'line',
@@ -463,6 +440,7 @@
                 options: {responsive:true, plugins:{legend:{display:false}}}
             });
         };
+
         btnNotifikasi.onclick = function() {
             btnHari.classList.remove('active');
             btnPrediksi.classList.remove('active');
@@ -473,6 +451,7 @@
             notifikasi.style.display = '';
             dataset.style.display = 'none';
         };
+
         btnDataset.onclick = function() {
             btnHari.classList.remove('active');
             btnPrediksi.classList.remove('active');
@@ -482,7 +461,7 @@
             prediksi.style.display = 'none';
             notifikasi.style.display = 'none';
             dataset.style.display = '';
-            // Generate dummy dataset
+
             let now = new Date();
             let datasetArr = [];
             for(let i=11;i>=0;i--) {
@@ -493,13 +472,13 @@
                 let kelembapan = 55 + Math.floor(Math.random()*10);
                 datasetArr.push({waktu: jam+':'+menit, suhu, kelembapan});
             }
-            // Tabel
+
             let table = document.getElementById('dataset-table');
             table.innerHTML = '';
             datasetArr.forEach(row => {
                 table.innerHTML += `<tr><td>${row.waktu}</td><td>${row.suhu}</td><td>${row.kelembapan}</td></tr>`;
             });
-            // Grafik
+
             if(window.datasetChartObj) window.datasetChartObj.destroy();
             window.datasetChartObj = new Chart(document.getElementById('datasetChart'), {
                 type: 'line',
@@ -512,7 +491,7 @@
                 },
                 options: {responsive:true}
             });
-            // Prediksi rata-rata 2 jam
+
             let avgSuhu = (datasetArr.reduce((a,b)=>a+b.suhu,0)/datasetArr.length).toFixed(1);
             let avgKelembapan = (datasetArr.reduce((a,b)=>a+b.kelembapan,0)/datasetArr.length).toFixed(1);
             document.getElementById('prediksi-2jam').innerText = `Suhu: ${avgSuhu} °C, Kelembapan: ${avgKelembapan} %`;
