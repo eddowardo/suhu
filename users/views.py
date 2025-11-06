@@ -7,8 +7,8 @@ from .forms import LoginForm, RegisterForm
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('monitor_suhu:index')
-        
+        return redirect('/dashboard/')
+
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -16,24 +16,24 @@ def login_view(request):
         if user is not None:
             login(request, user)
             messages.success(request, 'Login berhasil!')
-            return redirect('monitor_suhu:index')
+            return redirect('/dashboard/')
         else:
             messages.error(request, 'Username atau password salah!')
-    
+
     form = LoginForm()
     return render(request, 'users/login.html', {'form': form})
 
 def register_view(request):
     if request.user.is_authenticated:
-        return redirect('monitor_suhu:index')
-    
+        return redirect('/dashboard/')
+
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
             username = form.cleaned_data.get('username')
             email = form.cleaned_data.get('email')
             password = form.cleaned_data.get('password')
-            
+
             # Cek apakah username sudah ada
             if User.objects.filter(username=username).exists():
                 messages.error(request, 'Username sudah digunakan!')
@@ -52,4 +52,5 @@ def register_view(request):
 
 def logout_view(request):
     logout(request)
-    return redirect('login')
+    messages.success(request, 'Anda telah logout!')
+    return redirect('/')  # Redirect ke root URL yang menuju halaman login

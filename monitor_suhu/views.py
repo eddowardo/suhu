@@ -11,6 +11,11 @@ import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
+def home(request):
+    if request.user.is_authenticated:
+        return redirect('/dashboard/')
+    return redirect('/users/login/')
+
 # Load AI model for thermal comfort
 MODEL_PATH = '../Downloads/thermal_comfort_rf_model.pkl'
 try:
@@ -42,6 +47,7 @@ def predict_future_temp_humidity(hours=2):
     """
     Predict temperature and humidity 2 hours ahead using historical data trend.
     Uses data from last 10 minutes to calculate simple linear trend.
+    Returns None if insufficient data.
     """
     from django.utils import timezone
     now = timezone.now()
@@ -53,89 +59,31 @@ def predict_future_temp_humidity(hours=2):
     ).order_by('timestamp')
 
     if len(recent_readings) < 2:
-        # If not enough data, return average or default
-        all_recent = TemperatureReading.objects.filter(
-            timestamp__date=now.date()
-        )[:10]
-        if all_recent:
-            avg_temp = sum(r.temperature for r in all_recent) / len(all_recent)
-            avg_hum = sum(r.humidity for r in all_recent if r.humidity) / len([r for r in all_recent if r.humidity]) if any(r.humidity for r in all_recent) else 60
-        else:
-            avg_temp = 25
-            avg_hum = 60
-        return {'suhu_prediksi': round(avg_temp, 1), 'kelembapan_prediksi': round(avg_hum, 1)}
+        # If not enough data, return None
+        return None
 
-    # Calculate time differences and values
-    timestamps = [(r.timestamp - ten_minutes_ago).total_seconds() / 3600 for r in recent_readings]  # hours from start
-    temps = [r.temperature for r in recent_readings]
-    hums = [r.humidity if r.humidity else 60 for r in recent_readings]  # default humidity if None
+    # Prepare data for linear regression
+    timestamps = [(r.timestamp - ten_minutes_ago).total_seconds() / 60 for r in recent_readings]  # minutes from start
+    temperatures = [r.temperature for r in recent_readings]
+    humidities = [r.humidity for r in recent_readings if r.humidity is not None]
 
-    # Simple linear regression for trend
+    # Predict temperature
     temp_model = LinearRegression()
-    temp_model.fit(np.array(timestamps).reshape(-1, 1), temps)
-    future_time = (now - ten_minutes_ago).total_seconds() / 3600 + hours
-    predicted_temp = temp_model.predict([[future_time]])[0]
+    temp_model.fit(np.array(timestamps).reshape(-1, 1), temperatures)
+    future_minutes = 10 + (hours * 60)  # 10 minutes from now + 2 hours
+    predicted_temp = temp_model.predict(np.array([future_minutes]).reshape(-1, 1))[0]
 
-    hum_model = LinearRegression()
-    hum_model.fit(np.array(timestamps).reshape(-1, 1), hums)
-    predicted_hum = hum_model.predict([[future_time]])[0]
-
-    return {
-        'suhu_prediksi': round(max(15, min(40, predicted_temp)), 1),  # clamp to reasonable range
-        'kelembapan_prediksi': round(max(20, min(100, predicted_hum)), 1)
-    }
-
-# ===== API Views =====
-class RoomList(generics.ListCreateAPIView):
-    queryset = Room.objects.all()
-    serializer_class = RoomSerializer
-
-class TemperatureList(generics.ListCreateAPIView):
-    queryset = TemperatureReading.objects.all()
-    serializer_class = TemperatureReadingSerializer
-
-# ===== Home View =====
-def home(request):
-    if request.user.is_authenticated:
-        return redirect('monitor_suhu:index')
-    return render(request, 'monitor_suhu/home.html')
-
-# ===== API untuk menerima data dari sensor =====
-@api_view(['POST'])
-def receive_sensor_data(request):
-    serializer = SensorDataSerializer(data=request.data)
-    if serializer.is_valid():
-        room_id = serializer.validated_data['room_id']
-        temperature = serializer.validated_data['temperature']
-        humidity = serializer.validated_data.get('humidity')
-
-        try:
-            room = Room.objects.get(id=room_id)
-            TemperatureReading.objects.create(
-                room=room,
-                temperature=temperature,
-                humidity=humidity
-            )
-            return Response({"message": "Data received successfully"}, status=status.HTTP_201_CREATED)
-        except Room.DoesNotExist:
-            return Response({"error": "Room not found"}, status=status.HTTP_404_NOT_FOUND)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# ===== API untuk mendapatkan status kenyamanan =====
-@api_view(['GET'])
-def get_comfort_status(request):
-    """
-    Mengembalikan status kenyamanan berdasarkan data sensor terbaru.
-    Output: salah satu dari 'Nyaman', 'Tidak Nyaman Panas', 'Tidak Nyaman Dingin'
-    """
-    latest_reading = TemperatureReading.objects.order_by('-timestamp').first()
-    if latest_reading:
-        comfort_status = predict_comfort(latest_reading.temperature, latest_reading.humidity or 60)
+    # Predict humidity if enough data
+    if len(humidities) >= 2:
+        hum_timestamps = [(r.timestamp - ten_minutes_ago).total_seconds() / 60 for r in recent_readings if r.humidity is not None]
+        hum_model = LinearRegression()
+        hum_model.fit(np.array(hum_timestamps).reshape(-1, 1), humidities)
+        predicted_hum = hum_model.predict(np.array([future_minutes]).reshape(-1, 1))[0]
     else:
-        # Jika tidak ada data, gunakan nilai default
-        comfort_status = predict_comfort(25, 60)  # Suhu default 25°C, kelembapan 60%
+        # Use average humidity if not enough data
+        predicted_hum = sum(h.humidity for h in recent_readings if h.humidity) / len([h for h in recent_readings if h.humidity]) if any(h.humidity for h in recent_readings) else 60
 
-    return Response({"comfort_status": comfort_status}, status=status.HTTP_200_OK)
+    return {'suhu_prediksi': round(predicted_temp, 1), 'kelembapan_prediksi': round(predicted_hum, 1)}
 
 # ===== API untuk mendapatkan data sensor terbaru =====
 @api_view(['GET'])
@@ -147,21 +95,62 @@ def get_latest_sensor_data(request):
     if latest_reading:
         data = {
             "temperature": latest_reading.temperature,
-            "humidity": latest_reading.humidity or 60,
+            "humidity": latest_reading.humidity,
             "timestamp": latest_reading.timestamp
         }
+        return Response(data, status=status.HTTP_200_OK)
     else:
-        # Jika tidak ada data, gunakan nilai default
-        data = {
-            "temperature": 25.0,
-            "humidity": 60.0,
-            "timestamp": None
-        }
+        # Jika tidak ada data, kembalikan error
+        return Response({
+            "error": "No sensor data available",
+            "message": "Belum ada data sensor yang diterima"
+        }, status=status.HTTP_404_NOT_FOUND)
 
-    return Response(data, status=status.HTTP_200_OK)
+# ===== API untuk menerima data sensor dari NodeMCU =====
+@api_view(['POST'])
+def receive_sensor_data(request):
+    """
+    Menerima data sensor dari NodeMCU dan menyimpannya ke database.
+    """
+    serializer = SensorDataSerializer(data=request.data)
+    if serializer.is_valid():
+        # Simpan data suhu dan kelembapan
+        temperature = serializer.validated_data.get('temperature')
+        humidity = serializer.validated_data.get('humidity')
+
+        # Buat objek TemperatureReading baru
+        reading = TemperatureReading.objects.create(
+            temperature=temperature,
+            humidity=humidity
+        )
+
+        return Response({
+            "message": "Data sensor berhasil diterima",
+            "id": reading.id,
+            "temperature": temperature,
+            "humidity": humidity
+        }, status=status.HTTP_201_CREATED)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# ===== API untuk mendapatkan status kenyamanan =====
+@api_view(['GET'])
+def get_comfort_status(request):
+    """
+    Mengembalikan status kenyamanan berdasarkan data sensor terbaru.
+    """
+    latest_reading = TemperatureReading.objects.order_by('-timestamp').first()
+    if latest_reading:
+        comfort_status = predict_comfort(latest_reading.temperature, latest_reading.humidity)
+        return Response({"comfort_status": comfort_status}, status=status.HTTP_200_OK)
+    else:
+        return Response({
+            "error": "No sensor data available",
+            "message": "Belum ada data sensor untuk menentukan status kenyamanan"
+        }, status=status.HTTP_404_NOT_FOUND)
 
 # ===== HTML View =====
-# @login_required  # Disabled temporarily
+@login_required
 def index(request):
     # Ambil 10 data sensor terbaru untuk ditampilkan
     recent_readings = TemperatureReading.objects.all().order_by('-timestamp')[:10]
@@ -178,8 +167,11 @@ def index(request):
 
         # Data terbaru untuk dashboard
         latest_reading = recent_readings[0]
-        comfort_status = predict_comfort(latest_reading.temperature, latest_reading.humidity or 60)
-        kelembapan_saat_ini = latest_reading.humidity or 60
+        comfort_status = predict_comfort(latest_reading.temperature, latest_reading.humidity)
+        kelembapan_saat_ini = latest_reading.humidity
+
+        # Prediksi suhu dan kelembapan 2 jam kedepan
+        predictions = predict_future_temp_humidity(hours=2)
 
         context = {
             'sensor_data': sensor_data,
@@ -187,6 +179,8 @@ def index(request):
             'latest_humidity': latest_reading.humidity,
             'comfort_status': comfort_status,
             'kelembapan_saat_ini': kelembapan_saat_ini,
+            'suhu_prediksi_2jam': predictions['suhu_prediksi'] if predictions else None,
+            'kelembapan_prediksi_2jam': predictions['kelembapan_prediksi'] if predictions else None,
             'today_date': datetime.now().strftime('%d %B %Y'),
         }
     else:
@@ -195,8 +189,10 @@ def index(request):
             'sensor_data': [],
             'latest_temperature': None,
             'latest_humidity': None,
-            'comfort_status': 'Menunggu data sensor...',
-            'kelembapan_saat_ini': 60,
+            'comfort_status': 'Belum ada data sensor',
+            'kelembapan_saat_ini': None,
+            'suhu_prediksi_2jam': None,
+            'kelembapan_prediksi_2jam': None,
             'today_date': datetime.now().strftime('%d %B %Y'),
         }
 

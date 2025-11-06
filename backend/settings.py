@@ -1,11 +1,13 @@
 from pathlib import Path
+import os
 
+# === BASE DIRECTORY ===
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # === SECURITY ===
-SECRET_KEY = 'django-insecure-ymb_(s0fh-n%f&!i*340w3$c7+**j@x5%c@%qi^opuht3ip4)l'
-DEBUG = True
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.146.1.170']
+SECRET_KEY = 'django-insecure-ymb_(s0fh-n%f&!i*340w3$c7+**j@x5%c@%qi^opuht3ip4)l'  # Sebaiknya nanti pakai ENV variable
+DEBUG = False  # ⚠️ Set ke False saat deploy
+ALLOWED_HOSTS = ['103.151.63.83', 'localhost', '127.0.0.1']
 
 # === APPLICATIONS ===
 INSTALLED_APPS = [
@@ -25,7 +27,6 @@ INSTALLED_APPS = [
     'monitor_suhu',
     'users',
     'sensor',
-
 ]
 
 # === MIDDLEWARE ===
@@ -63,6 +64,7 @@ TEMPLATES = [
     },
 ]
 
+# === WSGI CONFIGURATION ===
 WSGI_APPLICATION = 'backend.wsgi.application'
 
 # === DATABASE (PostgreSQL) ===
@@ -71,8 +73,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'suhu_db',
         'USER': 'postgres',
-        'PASSWORD': '12',
-        'HOST': 'localhost',
+        'PASSWORD': '12',        # Ganti jika password DB di server berbeda
+        'HOST': 'localhost',     # Jika PostgreSQL di server yang sama
         'PORT': '5432',
     }
 }
@@ -91,29 +93,36 @@ TIME_ZONE = 'Asia/Jakarta'
 USE_I18N = True
 USE_TZ = True
 
-# === STATIC FILES ===
+# === STATIC & MEDIA FILES ===
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Folder hasil collectstatic
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # === LOGIN / LOGOUT Redirect ===
-LOGIN_REDIRECT_URL = '/'  # Setelah login
-LOGOUT_REDIRECT_URL = '/users/login/'  # Setelah logout
-LOGIN_URL = '/users/login/'  # URL untuk login jika mengakses halaman yang membutuhkan auth
+LOGIN_REDIRECT_URL = '/dashboard/'      # Setelah login
+LOGOUT_REDIRECT_URL = '/users/login/'   # Setelah logout
+LOGIN_URL = '/users/login/'             # Jika halaman butuh login
 
 # === SESSION AND COOKIE SETTINGS ===
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = True            # Aktifkan agar cookie aman (HTTPS)
+CSRF_COOKIE_SECURE = True               # Aktifkan agar CSRF cookie aman
 
 # === CORS SETTINGS ===
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",  # Django dev server
+    "http://103.151.63.83",             # IP server kamu
+    "http://localhost:8000",            # Untuk local testing
     "http://127.0.0.1:8000",
-    # Tambah IP NodeMCU jika berbeda
 ]
+
+# Jika kamu ingin izinkan semua asal (tidak disarankan di production):
+# CORS_ALLOW_ALL_ORIGINS = True
 
 # === DEFAULT PRIMARY KEY ===
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
