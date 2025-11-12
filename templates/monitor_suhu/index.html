@@ -164,17 +164,17 @@
                     </div>
                     <div class="card">
                         <div class="card-title">Suhu Saat Ini</div>
-                        <div class="card-value">{{ latest_temperature|default:"--" }}°C</div>
+                        <div class="card-value">{% if latest_temperature is not None %}{{ latest_temperature }}°C{% else %}-{% endif %}</div>
                         <canvas id="barChart" class="card-chart"></canvas>
                     </div>
                     <div class="card">
                         <div class="card-title">Kelembapan Saat Ini</div>
-                        <div class="card-value">{{ latest_humidity|default:"--" }}%</div>
+                        <div class="card-value">{% if latest_humidity is not None %}{{ latest_humidity }}%{% else %}-{% endif %}</div>
                         <canvas id="humidityChart" class="card-chart"></canvas>
                     </div>
                     <div class="card">
                         <div class="card-title">Suhu vs Kelembapan</div>
-                        <div class="card-value">{{ latest_temperature|default:"--" }}°C / {{ latest_humidity|default:"--" }}%</div>
+                        <div class="card-value">{% if latest_temperature is not None and latest_humidity is not None %}{{ latest_temperature }}°C / {{ latest_humidity }}%{% else %}-{% endif %}</div>
                         <canvas id="tempHumidityChart" class="card-chart"></canvas>
                     </div>
                 </div>
@@ -197,12 +197,12 @@
                 <div class="grid">
                     <div class="card">
                         <div class="card-title">Prediksi Suhu 2 Jam Kedepan</div>
-                        <div class="card-value" id="prediksi-suhu">{{ suhu_prediksi_2jam|default:"--" }}°C</div>
+                        <div class="card-value" id="prediksi-suhu">{% if suhu_prediksi_2jam is not None %}{{ suhu_prediksi_2jam }}°C{% else %}-{% endif %}</div>
                         <canvas id="prediksiSuhuChart" class="card-chart"></canvas>
                     </div>
                     <div class="card">
                         <div class="card-title">Prediksi Kelembapan 2 Jam Kedepan</div>
-                        <div class="card-value" id="prediksi-kelembapan">{{ kelembapan_prediksi_2jam|default:"--" }}%</div>
+                        <div class="card-value" id="prediksi-kelembapan">{% if kelembapan_prediksi_2jam is not None %}{{ kelembapan_prediksi_2jam }}%{% else %}-{% endif %}</div>
                         <canvas id="prediksiKelembapanChart" class="card-chart"></canvas>
                     </div>
                 </div>
@@ -230,7 +230,19 @@
                                 <th>Kelembapan (%)</th>
                             </tr>
                         </thead>
-                        <tbody id="dataset-table"></tbody>
+                            <tbody id="dataset-table">
+                                {% if sensor_data %}
+                                    {% for row in sensor_data %}
+                                        <tr>
+                                            <td>{{ row.timestamp }}</td>
+                                            <td>{{ row.temperature }}</td>
+                                            <td>{{ row.humidity }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr><td colspan="3">-</td></tr>
+                                {% endif %}
+                            </tbody>
                     </table>
                 </div>
                 <div class="card">
@@ -257,12 +269,21 @@
             if (humidityChart) humidityChart.destroy();
             if (tempHumidityChart) tempHumidityChart.destroy();
 
+            // Determine pie values from comfort status if provided
+            let pieData = [0, 100];
+            if (data && data.comfort_status) {
+                const cs = String(data.comfort_status).toLowerCase();
+                if (cs.includes('nyaman')) pieData = [100, 0];
+                else if (cs.includes('tidak nyaman') || cs.includes('tidak')) pieData = [0, 100];
+                else pieData = [0, 100];
+            }
+
             pieChart = new Chart(document.getElementById('pieChart'), {
                 type: 'doughnut',
                 data: {
                     labels: ['Comfort', 'Tidak Comfort'],
                     datasets: [{
-                        data: [70, 30], // dummy comfort level
+                        data: pieData,
                         backgroundColor: ['#00e6e6', '#25344a'],
                     }]
                 },
@@ -309,55 +330,126 @@
         async function updateSensorData() {
             try {
                 const response = await fetch('/api/latest-sensor-data/');
-                const data = await response.json();
 
-                // Update nilai di card
-                document.querySelector('.card:nth-child(2) .card-value').innerText = data.temperature + '°C';
-                document.querySelector('.card:nth-child(3) .card-value').innerText = data.humidity + '%';
-                document.querySelector('.card:nth-child(4) .card-value').innerText = data.temperature + '°C / ' + data.humidity + '%';
+                // If API returns non-OK (e.g. 404 when no data), show '-' instead of dummy values
+                if (!response.ok) {
+                    // Set display values to '-' and update charts with empty/zero values
+                    document.querySelector('.card:nth-child(2) .card-value').innerText = '-';
+                    document.querySelector('.card:nth-child(3) .card-value').innerText = '-';
+                    document.querySelector('.card:nth-child(4) .card-value').innerText = '-';
 
-                // Update status kenyamanan
-                const comfortResponse = await fetch('/api/comfort-status/');
-                const comfortData = await comfortResponse.json();
-                document.querySelector('.card:nth-child(1) .card-value').innerText = comfortData.comfort_status;
+                    // Status kenyamanan
+                    let comfortStatusVar = null;
+                    try {
+                        const comfortResponse = await fetch('/api/comfort-status/');
+                        if (comfortResponse.ok) {
+                            const comfortData = await comfortResponse.json();
+                            comfortStatusVar = comfortData.comfort_status;
+                            document.querySelector('.card:nth-child(1) .card-value').innerText = comfortStatusVar;
+                        } else {
+                            document.querySelector('.card:nth-child(1) .card-value').innerText = 'Belum ada data';
+                        }
+                    } catch (e) {
+                        document.querySelector('.card:nth-child(1) .card-value').innerText = 'Belum ada data';
+                    }
 
-                // Update terminal display
-                const terminal = document.getElementById('sensor-terminal');
-                const newEntry = document.createElement('div');
-                // Gunakan timestamp dari data sensor untuk akurasi waktu server
-                const sensorTime = new Date(data.timestamp);
-                const timestamp = sensorTime.toLocaleString('id-ID', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                });
-                newEntry.innerHTML = `${timestamp}: Suhu ${data.temperature}°C, Kelembapan ${data.humidity}%, Status: ${comfortData.comfort_status}`;
-                terminal.appendChild(newEntry);
+                    // Terminal entry to indicate missing sensor
+                    const terminal = document.getElementById('sensor-terminal');
+                    const newEntry = document.createElement('div');
+                    newEntry.style.color = '#ff6b6b';
+                    newEntry.innerText = `${new Date().toLocaleString('id-ID')}: Sensor tidak terdeteksi (menampilkan '-')`;
+                    terminal.appendChild(newEntry);
+                    while (terminal.children.length > 12) {
+                        if (terminal.children[2]) terminal.removeChild(terminal.children[2]);
+                    }
+                    terminal.scrollTop = terminal.scrollHeight;
 
-                // Keep only last 10 entries
-                while (terminal.children.length > 12) { // 2 header + 10 data
-                    if (terminal.children[2]) terminal.removeChild(terminal.children[2]);
+                    // Update charts with zeros so Chart.js doesn't break
+                    initCharts({
+                        suhu_saat_ini: 0,
+                        kelembapan_saat_ini: 0,
+                        comfort_status: comfortStatusVar
+                    });
+
+                    return;
                 }
 
-                // Scroll to bottom
-                terminal.scrollTop = terminal.scrollHeight;
+                const data = await response.json();
 
-                // Update chart
+                // If API returned a payload but values are null/undefined, treat as missing
+                const hasTemperature = (data && data.temperature !== null && data.temperature !== undefined);
+                const hasHumidity = (data && data.humidity !== null && data.humidity !== undefined);
+
+                // Update nilai di card (use '-' when missing)
+                document.querySelector('.card:nth-child(2) .card-value').innerText = hasTemperature ? (data.temperature + '°C') : '-';
+                document.querySelector('.card:nth-child(3) .card-value').innerText = hasHumidity ? (data.humidity + '%') : '-';
+                document.querySelector('.card:nth-child(4) .card-value').innerText = (hasTemperature && hasHumidity) ? (data.temperature + '°C / ' + data.humidity + '%') : '-';
+
+                // Update status kenyamanan (handle 404 or missing)
+                let comfortStatusVar = null;
+                try {
+                    const comfortResponse = await fetch('/api/comfort-status/');
+                    if (comfortResponse.ok) {
+                        const comfortData = await comfortResponse.json();
+                        comfortStatusVar = comfortData.comfort_status;
+                        document.querySelector('.card:nth-child(1) .card-value').innerText = comfortStatusVar;
+                    } else {
+                        document.querySelector('.card:nth-child(1) .card-value').innerText = 'Belum ada data';
+                    }
+                } catch (e) {
+                    document.querySelector('.card:nth-child(1) .card-value').innerText = 'Belum ada data';
+                }
+
+                // Update terminal display only when there's valid data
+                if (hasTemperature || hasHumidity) {
+                    const terminal = document.getElementById('sensor-terminal');
+                    const newEntry = document.createElement('div');
+                    // Gunakan timestamp dari data sensor untuk akurasi waktu server
+                    const sensorTime = data.timestamp ? new Date(data.timestamp) : new Date();
+                    const timestamp = sensorTime.toLocaleString('id-ID', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    newEntry.innerHTML = `${timestamp}: Suhu ${hasTemperature ? data.temperature + '°C' : '-'} , Kelembapan ${hasHumidity ? data.humidity + '%' : '-'} `;
+                    terminal.appendChild(newEntry);
+                    while (terminal.children.length > 12) { // 2 header + 10 data
+                        if (terminal.children[2]) terminal.removeChild(terminal.children[2]);
+                    }
+                    terminal.scrollTop = terminal.scrollHeight;
+                }
+
+                // Update chart (use zeros if missing to avoid NaN)
                 initCharts({
-                    suhu_saat_ini: data.temperature,
-                    kelembapan_saat_ini: data.humidity
+                    suhu_saat_ini: hasTemperature ? data.temperature : 0,
+                    kelembapan_saat_ini: hasHumidity ? data.humidity : 0,
+                    comfort_status: comfortStatusVar
                 });
             } catch (error) {
                 console.error('Error fetching sensor data:', error);
-                // Fallback to dummy data if API fails
-                let suhu_saat_ini = 22 + Math.floor(Math.random()*5);
-                let kelembapan_saat_ini = 60 + Math.floor(Math.random()*20);
+                // On network or unexpected error, show '-' and do not use dummy data
+                document.querySelector('.card:nth-child(2) .card-value').innerText = '-';
+                document.querySelector('.card:nth-child(3) .card-value').innerText = '-';
+                document.querySelector('.card:nth-child(4) .card-value').innerText = '-';
+                document.querySelector('.card:nth-child(1) .card-value').innerText = 'Belum ada data';
+
+                const terminal = document.getElementById('sensor-terminal');
+                const newEntry = document.createElement('div');
+                newEntry.style.color = '#ff6b6b';
+                newEntry.innerText = `${new Date().toLocaleString('id-ID')}: Error mengambil data sensor (menampilkan '-')`;
+                terminal.appendChild(newEntry);
+                while (terminal.children.length > 12) {
+                    if (terminal.children[2]) terminal.removeChild(terminal.children[2]);
+                }
+                terminal.scrollTop = terminal.scrollHeight;
+
                 initCharts({
-                    suhu_saat_ini,
-                    kelembapan_saat_ini
+                    suhu_saat_ini: 0,
+                    kelembapan_saat_ini: 0,
+                    comfort_status: null
                 });
             }
         }
@@ -400,23 +492,33 @@
             notifikasi.style.display = 'none';
             dataset.style.display = 'none';
 
-            let sensorValue = 25;
-            let kelembapanValue = 60;
+            // Read current displayed values (they may be '-' when no sensor)
+            const tempText = document.querySelector('.card:nth-child(2) .card-value').innerText.trim();
+            const humText = document.querySelector('.card:nth-child(3) .card-value').innerText.trim();
 
-            let prediksiSuhu = [sensorValue];
-            for(let i=1; i<5; i++) {
-                prediksiSuhu.push(prediksiSuhu[i-1] + Math.floor(Math.random()*3-1));
+            if (tempText === '-' || humText === '-') {
+                // No sensor data available — show '-' and remove any existing charts
+                document.getElementById('prediksi-suhu').innerText = '-';
+                document.getElementById('prediksi-kelembapan').innerText = '-';
+                if (window.prediksiSuhuChartObj) { window.prediksiSuhuChartObj.destroy(); window.prediksiSuhuChartObj = null; }
+                if (window.prediksiKelembapanChartObj) { window.prediksiKelembapanChartObj.destroy(); window.prediksiKelembapanChartObj = null; }
+                return;
             }
 
-            let prediksiKelembapan = [kelembapanValue];
-            for(let i=1; i<5; i++) {
-                prediksiKelembapan.push(prediksiKelembapan[i-1] + Math.floor(Math.random()*3-1));
-            }
+            const currentTemp = parseFloat(tempText);
+            const currentHum = parseFloat(humText);
+
+            // Deterministic (non-random) simple forecast: small steady trend
+            const prediksiSuhu = [currentTemp];
+            for (let i = 1; i < 5; i++) prediksiSuhu.push(+(prediksiSuhu[i-1] + 0.2).toFixed(1));
+
+            const prediksiKelembapan = [currentHum];
+            for (let i = 1; i < 5; i++) prediksiKelembapan.push(+(prediksiKelembapan[i-1] + 0.1).toFixed(1));
 
             document.getElementById('prediksi-suhu').innerText = prediksiSuhu[4] + '°C';
             document.getElementById('prediksi-kelembapan').innerText = prediksiKelembapan[4] + '%';
 
-            if(window.prediksiSuhuChartObj) window.prediksiSuhuChartObj.destroy();
+            if (window.prediksiSuhuChartObj) window.prediksiSuhuChartObj.destroy();
             window.prediksiSuhuChartObj = new Chart(document.getElementById('prediksiSuhuChart'), {
                 type: 'line',
                 data: {
@@ -432,7 +534,7 @@
                 options: {responsive:true, plugins:{legend:{display:false}}}
             });
 
-            if(window.prediksiKelembapanChartObj) window.prediksiKelembapanChartObj.destroy();
+            if (window.prediksiKelembapanChartObj) window.prediksiKelembapanChartObj.destroy();
             window.prediksiKelembapanChartObj = new Chart(document.getElementById('prediksiKelembapanChart'), {
                 type: 'line',
                 data: {
@@ -470,38 +572,37 @@
             notifikasi.style.display = 'none';
             dataset.style.display = '';
 
-            let now = new Date();
-            let datasetArr = [];
-            for(let i=11;i>=0;i--) {
-                let waktu = new Date(now.getTime()-i*10*60000);
-                let jam = waktu.getHours().toString().padStart(2,'0');
-                let menit = waktu.getMinutes().toString().padStart(2,'0');
-                let suhu = 22 + Math.floor(Math.random()*5);
-                let kelembapan = 55 + Math.floor(Math.random()*10);
-                datasetArr.push({waktu: jam+':'+menit, suhu, kelembapan});
+            // Read rows from server-rendered table (populated from sensor_data in template)
+            const table = document.getElementById('dataset-table');
+            const rows = Array.from(table.querySelectorAll('tr'));
+
+            // If table contains only the placeholder '-' row, treat as no data
+            if (rows.length === 0 || (rows.length === 1 && table.querySelector('tr td') && table.querySelector('tr td').innerText.trim() === '-')) {
+                if (window.datasetChartObj) { window.datasetChartObj.destroy(); window.datasetChartObj = null; }
+                document.getElementById('prediksi-2jam').innerText = 'Suhu: - °C, Kelembapan: - %';
+                return;
             }
 
-            let table = document.getElementById('dataset-table');
-            table.innerHTML = '';
-            datasetArr.forEach(row => {
-                table.innerHTML += `<tr><td>${row.waktu}</td><td>${row.suhu}</td><td>${row.kelembapan}</td></tr>`;
-            });
+            // Build arrays from table rows
+            const labels = rows.map(r => r.cells[0].innerText);
+            const suhuArr = rows.map(r => parseFloat(r.cells[1].innerText));
+            const kelembapanArr = rows.map(r => parseFloat(r.cells[2].innerText));
 
-            if(window.datasetChartObj) window.datasetChartObj.destroy();
+            if (window.datasetChartObj) window.datasetChartObj.destroy();
             window.datasetChartObj = new Chart(document.getElementById('datasetChart'), {
                 type: 'line',
                 data: {
-                    labels: datasetArr.map(x=>x.waktu),
+                    labels: labels,
                     datasets: [
-                        {label:'Suhu',data:datasetArr.map(x=>x.suhu),borderColor:'#00e6e6',fill:false},
-                        {label:'Kelembapan',data:datasetArr.map(x=>x.kelembapan),borderColor:'#ffce56',fill:false}
+                        {label:'Suhu',data:suhuArr,borderColor:'#00e6e6',fill:false},
+                        {label:'Kelembapan',data:kelembapanArr,borderColor:'#ffce56',fill:false}
                     ]
                 },
                 options: {responsive:true}
             });
 
-            let avgSuhu = (datasetArr.reduce((a,b)=>a+b.suhu,0)/datasetArr.length).toFixed(1);
-            let avgKelembapan = (datasetArr.reduce((a,b)=>a+b.kelembapan,0)/datasetArr.length).toFixed(1);
+            const avgSuhu = (suhuArr.reduce((a,b)=>a+b,0)/suhuArr.length).toFixed(1);
+            const avgKelembapan = (kelembapanArr.reduce((a,b)=>a+b,0)/kelembapanArr.length).toFixed(1);
             document.getElementById('prediksi-2jam').innerText = `Suhu: ${avgSuhu} °C, Kelembapan: ${avgKelembapan} %`;
         };
     });

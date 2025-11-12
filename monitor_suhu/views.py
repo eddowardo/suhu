@@ -91,20 +91,33 @@ def get_latest_sensor_data(request):
     """
     Mengembalikan data sensor terbaru (suhu dan kelembapan).
     """
+    # Treat readings older than STALE_THRESHOLD minutes as absent (sensor not detected)
+    STALE_THRESHOLD_MINUTES = 5
+    from django.utils import timezone
+    now = timezone.now()
+
     latest_reading = TemperatureReading.objects.order_by('-timestamp').first()
     if latest_reading:
+        # If the latest reading is too old, behave as if there's no data
+        age = now - latest_reading.timestamp
+        if age > timedelta(minutes=STALE_THRESHOLD_MINUTES):
+            return Response({
+                "error": "No recent sensor data",
+                "message": "Sensor belum mengirim data dalam beberapa menit"
+            }, status=status.HTTP_404_NOT_FOUND)
+
         data = {
             "temperature": latest_reading.temperature,
             "humidity": latest_reading.humidity,
             "timestamp": latest_reading.timestamp
         }
         return Response(data, status=status.HTTP_200_OK)
-    else:
-        # Jika tidak ada data, kembalikan error
-        return Response({
-            "error": "No sensor data available",
-            "message": "Belum ada data sensor yang diterima"
-        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Jika tidak ada data sama sekali
+    return Response({
+        "error": "No sensor data available",
+        "message": "Belum ada data sensor yang diterima"
+    }, status=status.HTTP_404_NOT_FOUND)
 
 # ===== API untuk menerima data sensor dari NodeMCU =====
 @api_view(['POST'])
@@ -139,15 +152,27 @@ def get_comfort_status(request):
     """
     Mengembalikan status kenyamanan berdasarkan data sensor terbaru.
     """
+    # Use same staleness rule as get_latest_sensor_data
+    STALE_THRESHOLD_MINUTES = 5
+    from django.utils import timezone
+    now = timezone.now()
+
     latest_reading = TemperatureReading.objects.order_by('-timestamp').first()
     if latest_reading:
+        age = now - latest_reading.timestamp
+        if age > timedelta(minutes=STALE_THRESHOLD_MINUTES):
+            return Response({
+                "error": "No recent sensor data",
+                "message": "Sensor belum mengirim data dalam beberapa menit"
+            }, status=status.HTTP_404_NOT_FOUND)
+
         comfort_status = predict_comfort(latest_reading.temperature, latest_reading.humidity)
         return Response({"comfort_status": comfort_status}, status=status.HTTP_200_OK)
-    else:
-        return Response({
-            "error": "No sensor data available",
-            "message": "Belum ada data sensor untuk menentukan status kenyamanan"
-        }, status=status.HTTP_404_NOT_FOUND)
+
+    return Response({
+        "error": "No sensor data available",
+        "message": "Belum ada data sensor untuk menentukan status kenyamanan"
+    }, status=status.HTTP_404_NOT_FOUND)
 
 # ===== HTML View =====
 @login_required
@@ -167,16 +192,29 @@ def index(request):
 
         # Data terbaru untuk dashboard
         latest_reading = recent_readings[0]
-        comfort_status = predict_comfort(latest_reading.temperature, latest_reading.humidity)
-        kelembapan_saat_ini = latest_reading.humidity
+        # If latest reading is stale, treat as no data
+        from django.utils import timezone
+        STALE_THRESHOLD_MINUTES = 5
+        now = timezone.now()
+        if now - latest_reading.timestamp > timedelta(minutes=STALE_THRESHOLD_MINUTES):
+            # mark as no recent data
+            latest_temperature_val = None
+            latest_humidity_val = None
+            comfort_status = 'Belum ada data'
+            kelembapan_saat_ini = None
+        else:
+            latest_temperature_val = latest_reading.temperature
+            latest_humidity_val = latest_reading.humidity
+            comfort_status = predict_comfort(latest_reading.temperature, latest_reading.humidity)
+            kelembapan_saat_ini = latest_reading.humidity
 
         # Prediksi suhu dan kelembapan 2 jam kedepan
         predictions = predict_future_temp_humidity(hours=2)
 
         context = {
             'sensor_data': sensor_data,
-            'latest_temperature': latest_reading.temperature,
-            'latest_humidity': latest_reading.humidity,
+            'latest_temperature': latest_temperature_val,
+            'latest_humidity': latest_humidity_val,
             'comfort_status': comfort_status,
             'kelembapan_saat_ini': kelembapan_saat_ini,
             'suhu_prediksi_2jam': predictions['suhu_prediksi'] if predictions else None,
